@@ -19,8 +19,7 @@ export default async function DashboardPage() {
   if (profile.must_change_password) redirect('/change-password')
 
   // manager and shift_manager get manager dashboard
-  const isManager = profile.role === 'manager' || profile.role === 'shift_manager'
-  if (isManager) {
+  if (profile.role === 'manager' || profile.role === 'shift_manager') {
     return <ManagerDashboard profile={profile} />
   }
 

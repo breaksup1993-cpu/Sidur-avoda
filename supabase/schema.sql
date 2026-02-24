@@ -12,7 +12,7 @@ create table profiles (
   id uuid references auth.users on delete cascade primary key,
   email text not null unique,
   name text not null,
-  role text not null default 'employee' check (role in ('manager', 'employee')),
+  role text not null default 'employee' check (role in ('manager', 'shift_manager', 'employee')),
   must_change_password boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -67,12 +67,45 @@ create table swap_requests (
   updated_at timestamptz not null default now()
 );
 
+create index idx_swap_requests_requester on swap_requests(requester_id);
+create index idx_swap_requests_target on swap_requests(target_id);
+create index idx_swap_requests_status on swap_requests(status);
+
+-- ===== DAILY BRIEFINGS =====
+create table daily_briefings (
+  id uuid default uuid_generate_v4() primary key,
+  week_start date not null,
+  day_index integer not null check (day_index >= 0 and day_index <= 6),
+  briefing_person text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (week_start, day_index)
+);
+
+create index idx_daily_briefings_week on daily_briefings(week_start);
+
+-- ===== MANUAL ASSIGNMENTS =====
+create table manual_assignments (
+  id uuid default uuid_generate_v4() primary key,
+  week_start date not null,
+  user_id uuid references profiles(id) on delete cascade not null,
+  selections jsonb not null default '[]',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (week_start, user_id)
+);
+
+create index idx_manual_assignments_week on manual_assignments(week_start);
+create index idx_manual_assignments_user on manual_assignments(user_id);
+
 -- ===== ROW LEVEL SECURITY =====
 
 alter table profiles enable row level security;
 alter table week_requests enable row level security;
 alter table week_deadlines enable row level security;
 alter table swap_requests enable row level security;
+alter table daily_briefings enable row level security;
+alter table manual_assignments enable row level security;
 
 -- Profiles: users see all profiles (for name display), only edit their own
 create policy "profiles_select_all" on profiles for select using (true);
@@ -104,6 +137,18 @@ create policy "swaps_select" on swap_requests for select using (
 create policy "swaps_insert" on swap_requests for insert with check (auth.uid() = requester_id);
 create policy "swaps_update" on swap_requests for update using (
   auth.uid() = target_id or
+  exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+);
+
+-- Daily briefings: only managers can manage
+create policy "briefings_select_all" on daily_briefings for select using (auth.role() = 'authenticated');
+create policy "briefings_write_manager" on daily_briefings for all using (
+  exists (select 1 from profiles where id = auth.uid() and role = 'manager')
+);
+
+-- Manual assignments: only managers can manage
+create policy "manual_assignments_select_all" on manual_assignments for select using (auth.role() = 'authenticated');
+create policy "manual_assignments_write_manager" on manual_assignments for all using (
   exists (select 1 from profiles where id = auth.uid() and role = 'manager')
 );
 

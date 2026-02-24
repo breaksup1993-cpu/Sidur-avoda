@@ -76,19 +76,27 @@ export default function EmployeeDashboard({ profile }: Props) {
     if (isPastDeadline) { toast.error('עבר הדדליין להגשה'); return }
     setSubmitting(true)
 
-    const res = await fetch('/api/requests/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_start: weekISO, selections }),
-    })
-    const data = await res.json()
-    
-    if (data.error) {
-      toast.error(data.error)
-    } else {
-      toast.success(existingRequest ? 'בקשה עודכנה' : 'בקשה נשלחה למנהל')
-      await loadWeekData()
+    const payload = {
+      user_id: profile.id,
+      week_start: weekISO,
+      selections,
+      status: 'pending' as const,
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
+
+    if (existingRequest && existingRequest.status === 'pending') {
+      const { error } = await supabase
+        .from('week_requests')
+        .update({ selections, updated_at: new Date().toISOString() })
+        .eq('id', existingRequest.id)
+      if (error) toast.error('שגיאה בשמירה'); else toast.success('בקשה עודכנה')
+    } else if (!existingRequest) {
+      const { error } = await supabase.from('week_requests').insert(payload)
+      if (error) toast.error('שגיאה בשליחה'); else toast.success('בקשה נשלחה למנהל')
+    }
+
+    await loadWeekData()
     setSubmitting(false)
   }
 
@@ -124,11 +132,11 @@ export default function EmployeeDashboard({ profile }: Props) {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+              <button onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>›</button>
               <button onClick={() => setWeekOffset(0)} className="px-3 h-8 rounded-lg text-xs font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#7a7f9e' }}>היום</button>
-              <button onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+              <button onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>‹</button>
             </div>
           </div>

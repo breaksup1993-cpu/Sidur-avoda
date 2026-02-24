@@ -124,26 +124,20 @@ export default function ManagerDashboard({ profile }: Props) {
   useEffect(() => { if (tab === 'swaps') loadSwaps() }, [tab, loadSwaps])
 
   async function approve(req: WeekRequest) {
-    const res = await fetch('/api/requests/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: req.id, managerNote }),
-    })
-    const data = await res.json()
-    if (data.error) toast.error(data.error)
-    else { toast.success('אושר'); loadRequests(); setExpandedId(null); setManagerNote('') }
+    const { error } = await supabase
+      .from('week_requests')
+      .update({ status: 'approved', manager_note: managerNote, updated_at: new Date().toISOString() })
+      .eq('id', req.id)
+    if (error) toast.error('שגיאה'); else { toast.success('אושר'); loadRequests(); setExpandedId(null) }
   }
 
   async function reject(req: WeekRequest) {
     if (!managerNote) { toast.error('הוסף הערה לדחייה'); return }
-    const res = await fetch('/api/requests/reject', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requestId: req.id, managerNote }),
-    })
-    const data = await res.json()
-    if (data.error) toast.error(data.error)
-    else { toast.success('נדחה'); loadRequests(); setExpandedId(null); setManagerNote('') }
+    const { error } = await supabase
+      .from('week_requests')
+      .update({ status: 'rejected', manager_note: managerNote, updated_at: new Date().toISOString() })
+      .eq('id', req.id)
+    if (error) toast.error('שגיאה'); else { toast.success('נדחה'); loadRequests(); setExpandedId(null) }
   }
 
   async function createUser() {
@@ -195,41 +189,30 @@ export default function ManagerDashboard({ profile }: Props) {
     const v = validateRequest(mySelections)
     if (!v.valid) { toast.error('תקן שגיאות לפני שליחה'); return }
     setSubmittingMy(true)
-    const res = await fetch('/api/requests/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week_start: weekISO, selections: mySelections }),
-    })
-    const data = await res.json()
-    if (data.error) {
-      toast.error(data.error)
-    } else {
-      toast.success('המשמרות שלך נשמרו')
-      await loadMyRequest()
+    const payload = {
+      user_id: profile.id, week_start: weekISO, selections: mySelections,
+      status: 'approved', submitted_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }
+    if (myRequest) {
+      await supabase.from('week_requests').update({ selections: mySelections, status: 'approved', updated_at: new Date().toISOString() }).eq('id', myRequest.id)
+    } else {
+      await supabase.from('week_requests').insert(payload)
+    }
+    toast.success('המשמרות שלך נשמרו')
+    loadMyRequest()
     setSubmittingMy(false)
   }
 
   async function approveSwap(swapId: string) {
-    const res = await fetch('/api/swap/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ swapId, approve: true }),
-    })
-    const data = await res.json()
-    if (data.error) toast.error(data.error)
-    else { toast.success('החלפה אושרה'); loadSwaps() }
+    const { error } = await supabase.from('swap_requests')
+      .update({ status: 'manager_approved', updated_at: new Date().toISOString() }).eq('id', swapId)
+    if (error) toast.error('שגיאה'); else { toast.success('החלפה אושרה'); loadSwaps() }
   }
 
   async function rejectSwap(swapId: string) {
-    const res = await fetch('/api/swap/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ swapId, approve: false }),
-    })
-    const data = await res.json()
-    if (data.error) toast.error(data.error)
-    else { toast.success('החלפה נדחתה'); loadSwaps() }
+    const { error } = await supabase.from('swap_requests')
+      .update({ status: 'manager_rejected', updated_at: new Date().toISOString() }).eq('id', swapId)
+    if (error) toast.error('שגיאה'); else { toast.success('החלפה נדחתה'); loadSwaps() }
   }
 
   function shareWhatsApp() {
@@ -246,7 +229,8 @@ export default function ManagerDashboard({ profile }: Props) {
     ['schedule', 'סידור'],
     ['my_request', 'המשמרות שלי'],
     ['swaps', 'החלפות'],
-    ...(isManager(profile.role) ? [['users' as Tab, 'עובדים'], ['stats' as Tab, 'סטטיסטיקות']] : []),
+    ['users', 'עובדים'],
+    ['stats', 'סטטיסטיקות'],
   ]
 
   return (
@@ -275,11 +259,11 @@ export default function ManagerDashboard({ profile }: Props) {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-lg font-bold"
+            <button onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-lg font-bold"
               style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>›</button>
             <button onClick={() => setWeekOffset(0)} className="px-3 h-8 rounded-lg text-xs font-bold"
               style={{ background: '#222638', border: '1px solid #2e3350', color: '#7a7f9e' }}>היום</button>
-            <button onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-lg font-bold"
+            <button onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-lg font-bold"
               style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>‹</button>
           </div>
         </div>

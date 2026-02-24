@@ -7,11 +7,19 @@ import { getWeekStart, getWeekDates, weekStartToISO, getWeekTitle, offsetWeek } 
 import ShiftPicker from '@/components/shifts/ShiftPicker'
 import ValidationPanel from '@/components/ui/ValidationPanel'
 import StatsBadge from '@/components/ui/StatsBadge'
+import SwapsTab from '@/components/shifts/SwapsTab'
 import toast from 'react-hot-toast'
 
 interface Props { profile: User }
-
 type Tab = 'request' | 'history' | 'swaps'
+
+// Auto deadline: every Tuesday at 12:00
+function getAutoDeadline(weekStart: Date): string {
+  const d = new Date(weekStart)
+  d.setDate(d.getDate() + 2) // Tuesday (week starts Sunday)
+  d.setHours(12, 0, 0, 0)
+  return d.toISOString()
+}
 
 export default function EmployeeDashboard({ profile }: Props) {
   const [tab, setTab] = useState<Tab>('request')
@@ -19,7 +27,6 @@ export default function EmployeeDashboard({ profile }: Props) {
   const [selections, setSelections] = useState<ShiftSelection[]>([])
   const [existingRequest, setExistingRequest] = useState<WeekRequest | null>(null)
   const [history, setHistory] = useState<WeekRequest[]>([])
-  const [deadline, setDeadline] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -27,13 +34,13 @@ export default function EmployeeDashboard({ profile }: Props) {
   const weekStart = offsetWeek(getWeekStart(), weekOffset)
   const weekDates = getWeekDates(weekStart)
   const weekISO = weekStartToISO(weekStart)
+  const deadline = getAutoDeadline(weekStart)
   const validation = validateRequest(selections)
   const counts = countByCategory(selections)
-  const isPastDeadline = deadline ? new Date() > new Date(deadline) : false
+  const isPastDeadline = new Date() > new Date(deadline)
 
   const loadWeekData = useCallback(async () => {
     setLoading(true)
-    // Load existing request for this week
     const { data: req } = await supabase
       .from('week_requests')
       .select('*')
@@ -48,22 +55,11 @@ export default function EmployeeDashboard({ profile }: Props) {
       setExistingRequest(null)
       setSelections([])
     }
-
-    // Load deadline for this week
-    const { data: dl } = await supabase
-      .from('week_deadlines')
-      .select('deadline')
-      .eq('week_start', weekISO)
-      .single()
-    setDeadline(dl?.deadline || null)
     setLoading(false)
   }, [weekISO, profile.id])
 
   useEffect(() => { loadWeekData() }, [loadWeekData])
-
-  useEffect(() => {
-    if (tab === 'history') loadHistory()
-  }, [tab])
+  useEffect(() => { if (tab === 'history') loadHistory() }, [tab])
 
   async function loadHistory() {
     const { data } = await supabase
@@ -94,10 +90,10 @@ export default function EmployeeDashboard({ profile }: Props) {
         .from('week_requests')
         .update({ selections, updated_at: new Date().toISOString() })
         .eq('id', existingRequest.id)
-      if (error) toast.error('שגיאה בשמירה'); else toast.success('בקשה עודכנה ✓')
+      if (error) toast.error('שגיאה בשמירה'); else toast.success('בקשה עודכנה')
     } else if (!existingRequest) {
       const { error } = await supabase.from('week_requests').insert(payload)
-      if (error) toast.error('שגיאה בשליחה'); else toast.success('בקשה נשלחה למנהל ✓')
+      if (error) toast.error('שגיאה בשליחה'); else toast.success('בקשה נשלחה למנהל')
     }
 
     await loadWeekData()
@@ -105,18 +101,15 @@ export default function EmployeeDashboard({ profile }: Props) {
   }
 
   const canEdit = !existingRequest || existingRequest.status === 'pending'
-  const statusColor: Record<string, string> = {
-    pending: '#f5974f', approved: '#2dd4a0', rejected: '#f05c5c'
-  }
-  const statusLabel: Record<string, string> = {
-    pending: 'ממתין לאישור', approved: '✓ אושר', rejected: '✕ נדחה'
-  }
+  const statusColor: Record<string, string> = { pending: '#f5974f', approved: '#2dd4a0', rejected: '#f05c5c' }
+  const statusLabel: Record<string, string> = { pending: 'ממתין לאישור', approved: 'אושר', rejected: 'נדחה' }
+
+  const TABS: [Tab, string][] = [['request', 'הגשת בקשה'], ['history', 'היסטוריה'], ['swaps', 'החלפות']]
 
   return (
     <div>
-      {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        {([['request','📋 הגשת בקשה'],['history','📁 היסטוריה'],['swaps','🔄 החלפות']] as [Tab,string][]).map(([t, label]) => (
+        {TABS.map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
             style={{
@@ -129,33 +122,25 @@ export default function EmployeeDashboard({ profile }: Props) {
         ))}
       </div>
 
-      {/* === REQUEST TAB === */}
       {tab === 'request' && (
         <div>
-          {/* Week navigation */}
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-black text-white">שבוע {getWeekTitle(weekStart)}</h2>
-              {deadline && (
-                <div className="text-xs mt-0.5" style={{ color: isPastDeadline ? '#f05c5c' : '#7a7f9e' }}>
-                  {isPastDeadline ? '⛔ עבר הדדליין' : `⏰ דדליין: ${new Date(deadline).toLocaleString('he-IL')}`}
-                </div>
-              )}
+              <div className="text-xs mt-0.5" style={{ color: isPastDeadline ? '#f05c5c' : '#7a7f9e' }}>
+                {isPastDeadline ? 'עבר הדדליין' : `דדליין: ${new Date(deadline).toLocaleString('he-IL')}`}
+              </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setWeekOffset(o => o - 1)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+              <button onClick={() => setWeekOffset(o => o - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>›</button>
-              <button onClick={() => setWeekOffset(0)}
-                className="px-3 h-8 rounded-lg text-xs font-bold"
+              <button onClick={() => setWeekOffset(0)} className="px-3 h-8 rounded-lg text-xs font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#7a7f9e' }}>היום</button>
-              <button onClick={() => setWeekOffset(o => o + 1)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+              <button onClick={() => setWeekOffset(o => o + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
                 style={{ background: '#222638', border: '1px solid #2e3350', color: '#e8eaf6' }}>‹</button>
             </div>
           </div>
 
-          {/* Status banner */}
           {existingRequest && (
             <div className="rounded-xl p-3 mb-4 flex items-center justify-between"
               style={{
@@ -173,19 +158,15 @@ export default function EmployeeDashboard({ profile }: Props) {
             </div>
           )}
 
-          {/* Counters */}
-          <div className="grid grid-cols-5 gap-2 mb-4">
+          <div className="grid grid-cols-4 gap-2 mb-4">
             <StatsBadge label="בקרים" value={counts.morning} color="#4f7ef8" min={2} />
             <StatsBadge label="צהריים" value={counts.noon} color="#2dd4a0" min={1} />
+            <StatsBadge label="ערב" value={counts.evening} color="#f5974f" />
             <StatsBadge label="לילות" value={counts.night} color="#f05c5c" />
-            <StatsBadge label="שישי בוקר" value={counts.rotation} color="#a07ce8" />
-            <StatsBadge label="⭐ איכויות" value={counts.premium} color="#f5c842" />
           </div>
 
-          {/* Validation */}
           {selections.length > 0 && <ValidationPanel result={validation} />}
 
-          {/* Grid */}
           {loading ? (
             <div className="text-center py-12" style={{ color: '#7a7f9e' }}>טוען...</div>
           ) : (
@@ -199,7 +180,6 @@ export default function EmployeeDashboard({ profile }: Props) {
             </div>
           )}
 
-          {/* Submit */}
           {canEdit && !isPastDeadline && (
             <button
               onClick={handleSubmit}
@@ -210,13 +190,12 @@ export default function EmployeeDashboard({ profile }: Props) {
                 opacity: submitting || !validation.valid ? 0.5 : 1,
                 border: validation.valid ? 'none' : '1px solid #2e3350',
               }}>
-              {submitting ? 'שולח...' : existingRequest ? '💾 עדכן בקשה' : '📤 שלח בקשה למנהל'}
+              {submitting ? 'שולח...' : existingRequest ? 'עדכן בקשה' : 'שלח בקשה למנהל'}
             </button>
           )}
         </div>
       )}
 
-      {/* === HISTORY TAB === */}
       {tab === 'history' && (
         <div className="space-y-3">
           <h2 className="text-lg font-black text-white mb-4">היסטוריית בקשות</h2>
@@ -239,25 +218,14 @@ export default function EmployeeDashboard({ profile }: Props) {
               </div>
               <div className="text-xs" style={{ color: '#7a7f9e' }}>
                 {(req.selections || []).length} משמרות נרשמו
-                {req.manager_note && <span className="mr-3">· הערה: {req.manager_note}</span>}
+                {req.manager_note && <span className="mr-3">הערה: {req.manager_note}</span>}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* === SWAPS TAB === */}
-      {tab === 'swaps' && (
-        <div>
-          <h2 className="text-lg font-black text-white mb-4">בקשות החלפה</h2>
-          <div className="text-center py-12 rounded-xl"
-            style={{ background: '#1a1d27', border: '1px solid #2e3350', color: '#7a7f9e' }}>
-            <div className="text-4xl mb-3">🔄</div>
-            <p className="font-semibold">אין בקשות החלפה פעילות</p>
-            <p className="text-xs mt-1">כדי לבקש החלפה, פנה למנהל</p>
-          </div>
-        </div>
-      )}
+      {tab === 'swaps' && <SwapsTab profile={profile} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { ShiftSelection } from '@/types'
-import { SHIFTS, DAYS_HE, getShiftsForDay } from '@/lib/shifts'
+import { DAYS_HE, getShiftsForDay } from '@/lib/shifts'
 import { formatDateHE } from '@/lib/week'
 
 interface ShiftPickerProps {
@@ -9,21 +9,17 @@ interface ShiftPickerProps {
   selections: ShiftSelection[]
   onChange: (selections: ShiftSelection[]) => void
   disabled?: boolean
+  managerView?: boolean
 }
 
-const CATEGORY_COLORS = {
-  regular: { border: '#2e3350', selectedBg: 'rgba(79,126,248,.12)', selectedBorder: '#4f7ef8', selectedText: '#4f7ef8' },
-  rotation: { border: '#7c5cbf', selectedBg: 'rgba(124,92,191,.15)', selectedBorder: '#7c5cbf', selectedText: '#a07ce8' },
-  premium: { border: '#f5c842', selectedBg: 'rgba(245,200,66,.12)', selectedBorder: '#f5c842', selectedText: '#f5c842' },
-}
-
-const TYPE_DOT: Record<string, string> = {
+const TYPE_COLOR: Record<string, string> = {
   morning: '#4f7ef8',
   noon: '#2dd4a0',
+  evening: '#f5974f',
   night: '#f05c5c',
 }
 
-export default function ShiftPicker({ weekDates, selections, onChange, disabled }: ShiftPickerProps) {
+export default function ShiftPicker({ weekDates, selections, onChange, disabled, managerView }: ShiftPickerProps) {
   const [openNote, setOpenNote] = useState<string | null>(null)
 
   function isSelected(dayIndex: number, shiftId: string) {
@@ -55,7 +51,7 @@ export default function ShiftPicker({ weekDates, selections, onChange, disabled 
     <div className="overflow-x-auto">
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(7, minmax(110px, 1fr))`, gap: '8px', minWidth: '770px' }}>
         {weekDates.map((date, dayIndex) => {
-          const shifts = getShiftsForDay(dayIndex)
+          const shifts = getShiftsForDay(dayIndex, managerView)
           const isWeekend = dayIndex >= 5
           return (
             <div key={dayIndex} className="rounded-xl p-2"
@@ -74,7 +70,7 @@ export default function ShiftPicker({ weekDates, selections, onChange, disabled 
                   const sel = isSelected(dayIndex, shift.id)
                   const note = getNote(dayIndex, shift.id)
                   const noteKey = `${dayIndex}-${shift.id}`
-                  const colors = CATEGORY_COLORS[shift.category]
+                  const color = TYPE_COLOR[shift.type] || '#7a7f9e'
 
                   return (
                     <div key={shift.id} className="mb-1.5">
@@ -82,26 +78,22 @@ export default function ShiftPicker({ weekDates, selections, onChange, disabled 
                         onClick={() => toggle(dayIndex, shift.id)}
                         className="rounded-lg p-2 cursor-pointer transition-all select-none"
                         style={{
-                          background: sel ? colors.selectedBg : '#0f1117',
-                          border: `1px solid ${sel ? colors.selectedBorder : colors.border}`,
+                          background: sel ? `${color}18` : '#0f1117',
+                          border: `1px solid ${sel ? color : '#2e3350'}`,
                           opacity: disabled ? 0.5 : 1,
                           cursor: disabled ? 'not-allowed' : 'pointer',
                         }}
                       >
                         <div className="flex items-center gap-1 mb-0.5">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ background: TYPE_DOT[shift.type] }} />
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                           <span className="text-xs font-bold leading-tight"
-                            style={{ color: sel ? colors.selectedText : '#e8eaf6', fontSize: '10px' }}>
+                            style={{ color: sel ? color : '#e8eaf6', fontSize: '10px' }}>
                             {shift.label}
                           </span>
                         </div>
-                        <div className="text-xs" style={{ color: '#7a7f9e', fontSize: '9px' }}>
-                          {shift.time}
-                        </div>
+                        <div style={{ color: '#7a7f9e', fontSize: '9px' }}>{shift.time}</div>
                       </div>
 
-                      {/* Note input */}
                       {sel && (
                         <div className="mt-1">
                           {openNote === noteKey ? (
@@ -113,26 +105,15 @@ export default function ShiftPicker({ weekDates, selections, onChange, disabled 
                               onBlur={() => setOpenNote(null)}
                               autoFocus
                               className="w-full px-2 py-1 rounded text-xs"
-                              style={{
-                                background: '#0f1117',
-                                border: '1px solid #4f7ef8',
-                                color: '#e8eaf6',
-                                outline: 'none',
-                                fontSize: '10px',
-                              }}
+                              style={{ background: '#0f1117', border: '1px solid #4f7ef8', color: '#e8eaf6', outline: 'none', fontSize: '10px' }}
                             />
                           ) : (
                             <button
                               onClick={e => { e.stopPropagation(); setOpenNote(noteKey) }}
-                              className="w-full text-right px-2 py-1 rounded text-xs transition-colors"
-                              style={{
-                                background: 'transparent',
-                                border: '1px dashed #2e3350',
-                                color: note ? '#f5974f' : '#3d4060',
-                                fontSize: '10px',
-                              }}
+                              className="w-full text-right px-2 py-1 rounded text-xs"
+                              style={{ background: 'transparent', border: '1px dashed #2e3350', color: note ? '#f5974f' : '#3d4060', fontSize: '10px' }}
                             >
-                              {note || '📝 הוסף הערה'}
+                              {note || 'הוסף הערה'}
                             </button>
                           )}
                         </div>

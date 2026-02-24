@@ -15,50 +15,45 @@ export function validateRequest(selections: ShiftSelection[]): ValidationResult 
   })
   const nightShifts = selections.filter(s => {
     const sh = getShiftById(s.shift_id)
-    return sh && sh.type === 'night' && sh.category === 'regular'
-  })
-  const premiumShifts = selections.filter(s => {
-    const sh = getShiftById(s.shift_id)
-    return sh && sh.category === 'premium'
-  })
-  const rotationShifts = selections.filter(s => {
-    const sh = getShiftById(s.shift_id)
-    return sh && sh.category === 'rotation'
+    return sh && (sh.type === 'night') && sh.category === 'regular'
   })
 
   const isMinimum = morningShifts.length <= 2 && noonShifts.length <= 1
 
-  // Rule 1: minimum 2 mornings
   if (morningShifts.length < 2) {
     errors.push(`חובה לרשום לפחות 2 בקרים (רשמת ${morningShifts.length})`)
   }
-
-  // Rule 2: minimum 1 noon
   if (noonShifts.length < 1) {
     errors.push(`חובה לרשום לפחות צהריים 1 (רשמת ${noonShifts.length})`)
   }
-
-  // Rule 3: minimum only → no nights
   if (isMinimum && nightShifts.length > 0) {
     errors.push('מי שרושם מינימום בלבד (2 בקרים + 1 צהריים) אינו יכול לרשום לילות')
   }
 
-  // Rule 4: minimum only → no premium (שישי/שבת לילה)
-  if (isMinimum && premiumShifts.length > 0) {
-    errors.push('מי שרושם מינימום בלבד אינו יכול להשתבץ במשמרות איכות (שישי/שבת לילה)')
-  }
+  // Rule: no morning + evening same day
+  const days = new Set(selections.map(s => s.day_index))
+  days.forEach(day => {
+    const daySelections = selections.filter(s => s.day_index === day)
+    const hasMorning = daySelections.some(s => {
+      const sh = getShiftById(s.shift_id)
+      return sh?.type === 'morning'
+    })
+    const hasEvening = daySelections.some(s => {
+      const sh = getShiftById(s.shift_id)
+      return sh?.type === 'evening'
+    })
+    if (hasMorning && hasEvening) {
+      const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+      errors.push(`לא ניתן לרשום גם בוקר וגם ערב ביום ${dayNames[day]}`)
+    }
+  })
 
-  // Rule 5: minimum only → no rotation (שישי בוקר)
-  if (isMinimum && rotationShifts.length > 0) {
-    errors.push('מי שרושם מינימום בלבד אינו יכול להשתבץ בשישי בוקר (משמרת סבב)')
-  }
-
-  // Duplicate day+type check
+  // Duplicate check
   const seen = new Set<string>()
   for (const sel of selections) {
     const key = `${sel.day_index}-${sel.shift_id}`
     if (seen.has(key)) {
-      warnings.push(`בחרת את אותה משמרת פעמיים באותו יום`)
+      warnings.push('בחרת את אותה משמרת פעמיים באותו יום')
     }
     seen.add(key)
   }
@@ -75,17 +70,17 @@ export function countByCategory(selections: ShiftSelection[]) {
     const sh = getShiftById(s.shift_id)
     return sh && sh.type === 'noon' && sh.category === 'regular'
   }).length
+  const evening = selections.filter(s => {
+    const sh = getShiftById(s.shift_id)
+    return sh && sh.type === 'evening' && sh.category === 'regular'
+  }).length
   const night = selections.filter(s => {
     const sh = getShiftById(s.shift_id)
     return sh && sh.type === 'night' && sh.category === 'regular'
   }).length
-  const rotation = selections.filter(s => {
+  const managerOnly = selections.filter(s => {
     const sh = getShiftById(s.shift_id)
-    return sh && sh.category === 'rotation'
+    return sh && sh.category === 'manager_only'
   }).length
-  const premium = selections.filter(s => {
-    const sh = getShiftById(s.shift_id)
-    return sh && sh.category === 'premium'
-  }).length
-  return { morning, noon, night, rotation, premium }
+  return { morning, noon, evening, night, managerOnly }
 }

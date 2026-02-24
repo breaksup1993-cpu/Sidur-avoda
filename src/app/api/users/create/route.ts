@@ -1,19 +1,25 @@
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
-  const supabase = createClient()
+  // Verify the requester is a manager
+  const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'לא מחובר' }, { status: 401 })
 
-  // Verify manager role
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'manager') return NextResponse.json({ error: 'הרשאה נדרשת' }, { status: 403 })
 
   const { name, email, password, role } = await request.json()
   if (!name || !email || !password) return NextResponse.json({ error: 'חסרים שדות' }, { status: 400 })
 
-  const adminSupabase = createAdminClient()
+  // Use service role client directly (no cookies)
+  const adminSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 
   // Create auth user
   const { data: newUser, error: authError } = await adminSupabase.auth.admin.createUser({

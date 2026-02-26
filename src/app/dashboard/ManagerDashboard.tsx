@@ -6,6 +6,7 @@ import { validateRequest, countByCategory } from '@/lib/validation'
 import { getWeekStart, getWeekDates, weekStartToISO, getWeekTitle, offsetWeek, formatDateHE } from '@/lib/week'
 import { SHIFTS, DAYS_HE, DAYS_SHORT, getShiftById } from '@/lib/shifts'
 import ShiftPicker from '@/components/shifts/ShiftPicker'
+import ScheduleBuilder from '@/components/schedule/ScheduleBuilder'
 import toast from 'react-hot-toast'
 
 interface Props { profile: User }
@@ -468,28 +469,16 @@ export default function ManagerDashboard({ profile }: Props) {
             </table>
           </div>
 
-          {/* Manual assignments section */}
+          {/* Drag & Drop schedule builder */}
           {canManage(profile.role) && (
             <div className="mt-6">
-              <h3 className="font-black text-white mb-3">שיבוץ ידני</h3>
-              <div className="space-y-3">
-                {users.map(u => (
-                  <div key={u.id} className="rounded-xl p-4" style={{ background: '#1a1d27', border: '1px solid #2e3350' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-bold text-sm text-white">{u.name}</span>
-                      <button onClick={() => saveManualAssignment(u.id, manualAssignments[u.id] || [])}
-                        className="px-3 py-1 rounded-lg text-xs font-bold text-white"
-                        style={{ background: '#4f7ef8' }}>שמור</button>
-                    </div>
-                    <ShiftPicker
-                      weekDates={weekDates}
-                      selections={manualAssignments[u.id] || []}
-                      onChange={sels => setManualAssignments(prev => ({ ...prev, [u.id]: sels }))}
-                      managerView={true}
-                    />
-                  </div>
-                ))}
-              </div>
+              <h3 className="font-black text-white mb-3">בניית סידור — גרור ושחרר</h3>
+              <ScheduleBuilder
+                users={users}
+                weekDates={weekDates}
+                weekISO={weekISO}
+                initialAssignments={manualAssignments}
+              />
             </div>
           )}
         </div>

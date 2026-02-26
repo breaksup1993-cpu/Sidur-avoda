@@ -60,3 +60,6 @@ export interface ValidationResult {
   errors: string[]
   warnings: string[]
 }
+
+// Schedule builder types
+export type CellKey = `${number}-${string}` // "dayIndex-shiftId" e.g. "0-s1"

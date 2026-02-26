@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { WeekRequest, User, ShiftSelection } from '@/types'
@@ -246,7 +246,8 @@ export default function ManagerDashboard({ profile }: Props) {
     ['schedule', 'סידור'],
     ['my_request', 'המשמרות שלי'],
     ['swaps', 'החלפות'],
-    ...(isManager(profile.role) ? [['users' as Tab, 'עובדים'], ['stats' as Tab, 'סטטיסטיקות']] : []),
+    ['users', 'עובדים'],
+    ['stats', 'סטטיסטיקות'],
   ]
 
   return (

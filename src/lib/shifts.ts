@@ -18,7 +18,7 @@ export const SHIFTS: Shift[] = [
   // שבת - רק מנהל מסדר
   { id: 's10', label: 'שבת בוקר', time: '07:00-15:00', type: 'morning', category: 'manager_only', day_of_week: [6], employee_selectable: false },
   { id: 's11', label: 'שבת ערב', time: '15:00-23:00', type: 'evening', category: 'manager_only', day_of_week: [6], employee_selectable: false },
-  { id: 's12', label: 'שבת לילה', time: '18:00-23:00', type: 'evening', category: 'manager_only', day_of_week: [6], employee_selectable: false },
+  { id: 's12', label: 'שבת ערב מאוחר', time: '18:00-23:00', type: 'evening', category: 'manager_only', day_of_week: [6], employee_selectable: false },
   { id: 's13', label: 'שבת לילה', time: '23:00-07:00', type: 'night', category: 'manager_only', day_of_week: [6], employee_selectable: false },
 ]
 

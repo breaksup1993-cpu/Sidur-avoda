@@ -57,10 +57,12 @@ export default function SwapsTab({ profile }: Props) {
     const ts = swap.target_shift
     const rsh = rs ? getShiftById(rs.shift_id) : null
     const tsh = ts ? getShiftById(ts.shift_id) : null
+    const rsDay = rs?.day_index != null ? DAYS_HE[rs.day_index] : '?'
+    const tsDay = ts?.day_index != null ? DAYS_HE[ts.day_index] : '?'
     if (isMine) {
-      return `ביקשת להחליף ${rsh ? `${rsh.label} ${rsh.time}` : ''} יום ${DAYS_HE[rs?.day_index]} עם ${swap.target?.name} (${tsh ? `${tsh.label} ${tsh.time}` : ''} יום ${DAYS_HE[ts?.day_index]})`
+      return `ביקשת להחליף ${rsh ? `${rsh.label} ${rsh.time}` : ''} יום ${rsDay} עם ${swap.target?.name || '?'} (${tsh ? `${tsh.label} ${tsh.time}` : ''} יום ${tsDay})`
     }
-    return `${swap.requester?.name} מבקש להחליף ${rsh ? `${rsh.label} ${rsh.time}` : ''} יום ${DAYS_HE[rs?.day_index]} עם המשמרת שלך (${tsh ? `${tsh.label} ${tsh.time}` : ''} יום ${DAYS_HE[ts?.day_index]})`
+    return `${swap.requester?.name || '?'} מבקש להחליף ${rsh ? `${rsh.label} ${rsh.time}` : ''} יום ${rsDay} עם המשמרת שלך (${tsh ? `${tsh.label} ${tsh.time}` : ''} יום ${tsDay})`
   }
 
   if (loading) return <div className="text-center py-12" style={{ color: '#7a7f9e' }}>טוען...</div>

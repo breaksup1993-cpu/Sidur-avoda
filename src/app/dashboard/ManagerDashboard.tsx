@@ -119,7 +119,7 @@ export default function ManagerDashboard({ profile }: Props) {
   }, [])
 
   useEffect(() => { loadRequests() }, [loadRequests])
-  useEffect(() => { if (tab === 'users' || tab === 'stats') loadUsers() }, [tab, loadUsers])
+  useEffect(() => { if (tab === 'users' || tab === 'stats' || tab === 'schedule') loadUsers() }, [tab, loadUsers])
   useEffect(() => { if (tab === 'my_request') loadMyRequest() }, [tab, loadMyRequest])
   useEffect(() => { if (tab === 'swaps') loadSwaps() }, [tab, loadSwaps])
 
@@ -301,7 +301,7 @@ export default function ManagerDashboard({ profile }: Props) {
               <div key={req.id} className="rounded-xl overflow-hidden"
                 style={{ border: `1px solid ${v.errors.length > 0 ? '#f05c5c' : statusColor[req.status] || '#2e3350'}`, background: '#1a1d27' }}>
                 <div className="flex items-center justify-between p-4 cursor-pointer"
-                  onClick={() => setExpandedId(isOpen ? null : req.id)}>
+                  onClick={() => { setExpandedId(isOpen ? null : req.id); setManagerNote('') }}>
                   <div>
                     <div className="font-black text-white">{req.user_name}</div>
                     <div className="text-xs mt-0.5" style={{ color: '#7a7f9e' }}>

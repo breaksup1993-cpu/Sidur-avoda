@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'לא מחובר' }, { status: 401 })
 
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (profile?.role !== 'manager') return NextResponse.json({ error: 'הרשאת מנהל נדרשת' }, { status: 403 })
+    if (profile?.role !== 'manager' && profile?.role !== 'shift_manager') return NextResponse.json({ error: 'הרשאת מנהל נדרשת' }, { status: 403 })
 
     const { swapId, approve } = await request.json()
     if (!swapId) return NextResponse.json({ error: 'חסר swapId' }, { status: 400 })

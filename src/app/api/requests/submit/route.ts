@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { validateRequest } from '@/lib/validation'
 
 export async function POST(request: Request) {
   try {
@@ -8,7 +9,13 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'לא מחובר' }, { status: 401 })
 
     const { week_start, selections } = await request.json()
-    if (!week_start || !selections) return NextResponse.json({ error: 'חסרים שדות' }, { status: 400 })
+    if (!week_start || !selections || !Array.isArray(selections)) return NextResponse.json({ error: 'חסרים שדות' }, { status: 400 })
+
+    // Server-side validation
+    const validation = validateRequest(selections)
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.errors[0] }, { status: 400 })
+    }
 
     // Check if user is manager (managers auto-approve their own requests)
     const { data: userProfile } = await supabase
@@ -17,8 +24,8 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single()
 
-    const isManager = userProfile?.role === 'manager'
-    const status = isManager ? 'approved' : 'pending'
+    const isManagerOrShiftManager = userProfile?.role === 'manager' || userProfile?.role === 'shift_manager'
+    const status = isManagerOrShiftManager ? 'approved' : 'pending'
 
     const payload = {
       user_id: user.id,
@@ -38,7 +45,7 @@ export async function POST(request: Request) {
       .single()
 
     if (existing) {
-      if (existing.status !== 'pending' && !isManager) {
+      if (existing.status !== 'pending' && !isManagerOrShiftManager) {
         return NextResponse.json({ error: 'לא ניתן לערוך בקשה שאושרה או נדחתה' }, { status: 400 })
       }
       // Update existing
